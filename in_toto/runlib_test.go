@@ -8,14 +8,20 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+func testOSisWindows() bool {
+	os := runtime.GOOS
+	return os == "windows"
+}
+
 func TestRecordArtifact(t *testing.T) {
 	// Test successfully record one artifact
-	result, err := RecordArtifact("foo.tar.gz", []string{"sha256"})
+	result, err := RecordArtifact("foo.tar.gz", []string{"sha256"}, testOSisWindows())
 	expected := map[string]interface{}{
 		"sha256": "52947cb78b91ad01fe81cd6aef42d1f6817e92b9e6936c1e5aabb7c98514f355",
 	}
@@ -25,13 +31,13 @@ func TestRecordArtifact(t *testing.T) {
 	}
 
 	// Test error by recording nonexistent artifact
-	result, err = RecordArtifact("file-does-not-exist", []string{"sha256"})
+	result, err = RecordArtifact("file-does-not-exist", []string{"sha256"}, testOSisWindows())
 	if !os.IsNotExist(err) {
 		t.Errorf("RecordArtifact returned '(%s, %s)', expected '(nil, %s)'",
 			result, err, os.ErrNotExist)
 	}
 
-	result, err = RecordArtifact("foo.tar.gz", []string{"invalid"})
+	result, err = RecordArtifact("foo.tar.gz", []string{"invalid"}, testOSisWindows())
 	if !errors.Is(err, ErrUnsupportedHashAlgorithm) {
 		t.Errorf("RecordArtifact returned '(%s, %s)', expected '(nil, %s)'", result, err, ErrUnsupportedHashAlgorithm)
 	}
@@ -97,7 +103,7 @@ func TestGitPathSpec(t *testing.T) {
 		"*.pub",           // Match all .pub files (even the ones in subdirectories)
 		"beta/foo.tar.gz", // Match full path
 		"alpha/**",        // Match all directories and files beneath alpha
-	}, nil)
+	}, nil, testOSisWindows())
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("RecordArtifacts returned '(%s, %s)', expected '(%s, nil)'",
 			result, err, expected)
@@ -125,7 +131,7 @@ func TestSymlinkToFile(t *testing.T) {
 			"sha256": "52947cb78b91ad01fe81cd6aef42d1f6817e92b9e6936c1e5aabb7c98514f355",
 		},
 	}
-	result, err := RecordArtifacts([]string{"foo.tar.gz.sym"}, []string{"sha256"}, nil, nil)
+	result, err := RecordArtifacts([]string{"foo.tar.gz.sym"}, []string{"sha256"}, nil, nil, testOSisWindows())
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("RecordArtifacts returned '(%s, %s)', expected '(%s, nil)'",
 			result, err, expected)
@@ -164,7 +170,7 @@ func TestIndirectSymlinkCycles(t *testing.T) {
 	}
 
 	// provoke "symlink cycle detected" error
-	_, err = RecordArtifacts([]string{"symTestA/linkToB.sym", "symTestB/linkToA.sym", "foo.tar.gz"}, []string{"sha256"}, nil, nil)
+	_, err = RecordArtifacts([]string{"symTestA/linkToB.sym", "symTestB/linkToA.sym", "foo.tar.gz"}, []string{"sha256"}, nil, nil, testOSisWindows())
 	if !errors.Is(err, ErrSymCycle) {
 		t.Errorf("we expected: %s, we got: %s", ErrSymCycle, err)
 	}
@@ -207,7 +213,7 @@ func TestSymlinkToFolder(t *testing.T) {
 		t.Errorf("could not write symTmpfile: %s", err)
 	}
 
-	result, err := RecordArtifacts([]string{"symTmpfile.sym"}, []string{"sha256"}, nil, nil)
+	result, err := RecordArtifacts([]string{"symTmpfile.sym"}, []string{"sha256"}, nil, nil, testOSisWindows())
 	if err != nil {
 		t.Error(err)
 	}
@@ -259,7 +265,7 @@ func TestSymlinkCycle(t *testing.T) {
 	}
 
 	// provoke "symlink cycle detected" error
-	_, err = RecordArtifacts([]string{"symlinkCycle/symCycle.sym", "foo.tar.gz"}, []string{"sha256"}, nil, nil)
+	_, err = RecordArtifacts([]string{"symlinkCycle/symCycle.sym", "foo.tar.gz"}, []string{"sha256"}, nil, nil, testOSisWindows())
 	if !errors.Is(err, ErrSymCycle) {
 		t.Errorf("we expected: %s, we got: %s", ErrSymCycle, err)
 	}
@@ -282,7 +288,7 @@ func TestRecordArtifacts(t *testing.T) {
 		t.Errorf("could not write tmpfile: %s", err)
 	}
 	result, err := RecordArtifacts([]string{"foo.tar.gz",
-		"tmpdir/tmpfile"}, []string{"sha256"}, nil, []string{"tmpdir/"})
+		"tmpdir/tmpfile"}, []string{"sha256"}, nil, []string{"tmpdir/"}, testOSisWindows())
 	expected := map[string]interface{}{
 		"foo.tar.gz": map[string]interface{}{
 			"sha256": "52947cb78b91ad01fe81cd6aef42d1f6817e92b9e6936c1e5aabb7c98514f355",
@@ -300,7 +306,7 @@ func TestRecordArtifacts(t *testing.T) {
 		t.Errorf("could not write tmpfile: %s", err)
 	}
 	_, err = RecordArtifacts([]string{"foo.tar.gz",
-		"tmpdir/foo.tar.gz"}, []string{"sha256"}, nil, []string{"tmpdir/"})
+		"tmpdir/foo.tar.gz"}, []string{"sha256"}, nil, []string{"tmpdir/"}, testOSisWindows())
 	if err == nil {
 		t.Error("duplicated path error expected")
 	}
@@ -310,7 +316,7 @@ func TestRecordArtifacts(t *testing.T) {
 	}
 
 	// Test error by recording nonexistent artifact
-	result, err = RecordArtifacts([]string{"file-does-not-exist"}, []string{"sha256"}, nil, nil)
+	result, err = RecordArtifacts([]string{"file-does-not-exist"}, []string{"sha256"}, nil, nil, testOSisWindows())
 	if !os.IsNotExist(err) {
 		t.Errorf("RecordArtifacts returned '(%s, %s)', expected '(nil, %s)'",
 			result, err, os.ErrNotExist)
@@ -416,7 +422,7 @@ func TestInTotoRun(t *testing.T) {
 	}
 
 	for _, table := range tablesCorrect {
-		result, err := InTotoRun(linkName, "", table.materialPaths, table.productPaths, table.cmdArgs, table.key, table.hashAlgorithms, nil, nil)
+		result, err := InTotoRun(linkName, "", table.materialPaths, table.productPaths, table.cmdArgs, table.key, table.hashAlgorithms, nil, nil, testOSisWindows())
 		if !reflect.DeepEqual(result, table.result) {
 			t.Errorf("InTotoRun returned '(%s, %s)', expected '(%s, nil)'", result, err, table.result)
 		} else {
@@ -460,7 +466,7 @@ func TestInTotoRun(t *testing.T) {
 	}
 
 	for _, table := range tablesInvalid {
-		result, err := InTotoRun(linkName, "", table.materialPaths, table.productPaths, table.cmdArgs, table.key, table.hashAlgorithms, nil, nil)
+		result, err := InTotoRun(linkName, "", table.materialPaths, table.productPaths, table.cmdArgs, table.key, table.hashAlgorithms, nil, nil, testOSisWindows())
 		if err == nil {
 			t.Errorf("InTotoRun returned '(%s, %s)', expected error",
 				result, err)
@@ -530,10 +536,10 @@ func TestInTotoRecord(t *testing.T) {
 	}
 
 	for _, table := range tablesCorrect {
-		result, err := InTotoRecordStart(linkName, table.materialPaths, table.key, table.hashAlgorithms, nil, nil)
+		result, err := InTotoRecordStart(linkName, table.materialPaths, table.key, table.hashAlgorithms, nil, nil, testOSisWindows())
 		assert.Nil(t, err, "unexpected error while running record start")
 		assert.Equal(t, table.startResult, result, "result from record start did not match expected result")
-		stopResult, err := InTotoRecordStop(result, table.productPaths, table.key, table.hashAlgorithms, nil, nil)
+		stopResult, err := InTotoRecordStop(result, table.productPaths, table.key, table.hashAlgorithms, nil, nil, testOSisWindows())
 		assert.Nil(t, err, "unexpected error while running record stop")
 		assert.Equal(t, table.stopResult, stopResult, "result from record stop did not match expected result")
 	}
@@ -576,7 +582,7 @@ func TestRecordArtifactWithBlobs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := RecordArtifact(tt.args.path, tt.args.hashAlgorithms)
+			got, err := RecordArtifact(tt.args.path, tt.args.hashAlgorithms, false)
 			if err != tt.wantErr {
 				t.Errorf("RecordArtifact() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -585,5 +591,20 @@ func TestRecordArtifactWithBlobs(t *testing.T) {
 				t.Errorf("RecordArtifact() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// Copy of TestRecordArtifact and TestRecordArtifactWithBlobs with lineNormalization parameter set as true.
+// Need to be changed when line normalization is properly implemented.
+func TestLineNormalizatiionFlag(t *testing.T) {
+	result, err := RecordArtifact("helloworld", []string{"sha256", "sha384", "sha512"}, true)
+	expected := map[string]interface{}{
+		"sha256": "23c7533f6ac321054383a8b69dd24ac9355c5ccdb804add317ded00623380126",
+		"sha384": "90e549cd7a1f9f5f30f4c3ff7b05c45452d1d540343204afe708da00bb161832a1a292fd5978d70123d354061bfde6f2",
+		"sha512": "fbd48634f1623078d34113bdfcf6e1ab25cb89af8186d4e74befa28aafaf5d4cc69c084a18b7aae6e33c5afc1754872b2bff567facba86f4ac22622872a58ff9",
+	}
+	if !reflect.DeepEqual(result, expected) || err != nil {
+		t.Errorf("RecordArtifact returned '(%s, %s)', expected '(%s, nil)'",
+			result, err, expected)
 	}
 }
