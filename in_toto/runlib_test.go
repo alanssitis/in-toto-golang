@@ -596,7 +596,8 @@ func TestRecordArtifactWithBlobs(t *testing.T) {
 
 // Copy of TestRecordArtifact and TestRecordArtifactWithBlobs with lineNormalization parameter set as true.
 // Need to be changed when line normalization is properly implemented.
-func TestLineNormalizatiionFlag(t *testing.T) {
+func TestLineNormalizationFlag(t *testing.T) {
+	// Check that bug in #135 is replicated
 	result, err := RecordArtifact("helloworld", []string{"sha256", "sha384", "sha512"}, true)
 	expected := map[string]interface{}{
 		"sha256": "23c7533f6ac321054383a8b69dd24ac9355c5ccdb804add317ded00623380126",
